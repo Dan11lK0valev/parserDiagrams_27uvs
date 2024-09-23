@@ -69,6 +69,13 @@ def make_diagrams(sheet_name, file_path, folder_name):
     values_2023 = df.iloc[2:, 3].astype(float).values  # Данные за 2023 год (столбец D)
     values_2024 = df.iloc[2:, 2].astype(float).values  # Данные за 2024 год (столбец C)
 
+    # Фильтруем регионы, у которых значения за все три года равны нулю
+    non_zero_filter = (values_2022 != 0) | (values_2023 != 0) | (values_2024 != 0)
+    regions = regions[non_zero_filter]
+    values_2022 = values_2022[non_zero_filter]
+    values_2023 = values_2023[non_zero_filter]
+    values_2024 = values_2024[non_zero_filter]
+
     # Сортировка регионов по возрастанию значений за 2024 год
     sorted_indices = values_2024.argsort()
     regions = regions[sorted_indices]
