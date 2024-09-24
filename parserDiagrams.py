@@ -155,6 +155,40 @@ def make_diagrams(sheet_name, file_path, folder_name):
     ax = plt.gca()
     ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{int(x):,}'.replace(',', ' ')))
 
+    # Извлечение меток оси Y
+    yaxis = ax.get_yaxis()
+    ticklabels = yaxis.get_ticklabels()
+    # Извлечение максимального значения оси Y
+    text_string = ticklabels[-2].get_text()
+    y_max_label = int(text_string.replace(' ', ''))
+
+    # Словарь для отслеживания высоты текста для каждого столбца
+    height_offsets = {}
+
+    # Добавление чисел над столбцами, превышающими максимальное значение Y
+    for i, value in enumerate(values_2022):
+        if value > y_max_label:
+            # Проверяем, есть ли уже текст на этой высоте
+            offset = height_offsets.get(i, 0)
+            ax.text(i - width, value + 2 + offset, f'{int(value):,}'.replace(',', ' '), fontsize=8, ha='center',
+                    color='black')
+            # Увеличиваем высоту для следующего текста на этом же столбце
+            height_offsets[i] = offset + 2
+
+    for i, value in enumerate(values_2023):
+        if value > y_max_label:
+            offset = height_offsets.get(i, 0)
+            ax.text(i, value + 2 + offset, f'{int(value):,}'.replace(',', ' '), fontsize=8, ha='center',
+                    color='black')
+            height_offsets[i] = offset + 2
+
+    for i, value in enumerate(values_2024):
+        if value > y_max_label:
+            offset = height_offsets.get(i, 0)
+            ax.text(i + width, value + 2 + offset, f'{int(value):,}'.replace(',', ' '), fontsize=8, ha='center',
+                    color='black')
+            height_offsets[i] = offset + 2
+
     plt.savefig(f'{folder_name}/{sheet_name}.png', dpi=500, bbox_inches='tight')
     plt.close()
 
