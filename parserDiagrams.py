@@ -69,12 +69,14 @@ def make_diagrams(sheet_name, file_path, folder_name):
     values_2023 = df.iloc[2:, 3].astype(float).values  # Данные за 2023 год (столбец D)
     values_2024 = df.iloc[2:, 2].astype(float).values  # Данные за 2024 год (столбец C)
 
-    # Фильтруем регионы, у которых значения за все три года равны нулю
-    non_zero_filter = (values_2022 != 0) | (values_2023 != 0) | (values_2024 != 0)
-    regions = regions[non_zero_filter]
-    values_2022 = values_2022[non_zero_filter]
-    values_2023 = values_2023[non_zero_filter]
-    values_2024 = values_2024[non_zero_filter]
+    # Фильтруем регионы, у которых данные за все три года равны нулю или данные есть только за один год
+    non_zero_and_one_filter = ((values_2022 != 0).astype(int) + (values_2023 != 0).astype(int) + (
+                values_2024 != 0).astype(
+        int)) > 1
+    regions = regions[non_zero_and_one_filter]
+    values_2022 = values_2022[non_zero_and_one_filter]
+    values_2023 = values_2023[non_zero_and_one_filter]
+    values_2024 = values_2024[non_zero_and_one_filter]
 
     # Сортировка регионов по возрастанию значений за 2024 год
     sorted_indices = values_2024.argsort()
@@ -83,10 +85,23 @@ def make_diagrams(sheet_name, file_path, folder_name):
     values_2023 = values_2023[sorted_indices]
     values_2024 = values_2024[sorted_indices]
 
-    # Расчет средних значений для каждого года без учета нулевых значений
-    mean_2024 = values_2024[values_2024 > 0].mean()
-    mean_2023 = values_2023[values_2023 > 0].mean()
-    mean_2022 = values_2022[values_2022 > 0].mean()
+    # Фильтр для регионов, у которых есть данные хотя бы за два года
+    valid_data_filter = ((values_2022 != 0).astype(int) + (values_2023 != 0).astype(int) + (values_2024 != 0).astype(
+        int)) > 1
+    # Расчет средних значений для каждого года с учетом только валидных данных
+    mean_2022 = values_2022[valid_data_filter & (values_2022 > 0)].mean()
+    mean_2023 = values_2023[valid_data_filter & (values_2023 > 0)].mean()
+    mean_2024 = values_2024[valid_data_filter & (values_2024 > 0)].mean()
+
+    std_2022 = values_2022[valid_data_filter & (values_2022 > 0)].std(ddof=0)
+    std_2023 = values_2023[valid_data_filter & (values_2023 > 0)].std(ddof=0)
+    std_2024 = values_2024[valid_data_filter & (values_2024 > 0)].std(ddof=0)
+
+    # Определение порога для выбросов
+    standard_deviation = 4
+    threshold_2022 = mean_2022 + standard_deviation * std_2022
+    threshold_2023 = mean_2023 + standard_deviation * std_2023
+    threshold_2024 = mean_2024 + standard_deviation * std_2024
 
     # Настройка положения для каждой группы столбиков
     x = range(len(regions))
@@ -94,11 +109,26 @@ def make_diagrams(sheet_name, file_path, folder_name):
 
     # Построение диаграммы
     plt.figure(figsize=(10, 6), dpi=500)
+    # fig, ax = plt.subplots()  # Создаем фигуру и оси
+
+    # Функция для определения цвета столбика: красный, если значение превышает порог
+    def bar_color(value, threshold, year):
+        color = ''
+        if year == 2022:
+            color = '#A5A5A5'
+        if year == 2023:
+            color = '#ED7D31'
+        if year == 2024:
+            color = '#5B9BD5'
+        return 'red' if value > threshold else color
 
     # Столбики для каждого года
-    plt.bar([i - width for i in x], values_2022, width=width, label='2022', color='#A5A5A5')
-    plt.bar(x, values_2023, width=width, label='2023', color='#ED7D31')
-    plt.bar([i + width for i in x], values_2024, width=width, label='2024', color='#5B9BD5')
+    plt.bar([i - width for i in x], values_2022, width=width,
+            label='2022', color=[bar_color(v, threshold_2022, 2022) for v in values_2022])
+    plt.bar(x, values_2023, width=width,
+            label='2023', color=[bar_color(v, threshold_2023, 2023) for v in values_2023])
+    plt.bar([i + width for i in x], values_2024, width=width,
+            label='2024', color=[bar_color(v, threshold_2024, 2024) for v in values_2024])
 
     # Горизонтальные пунктирные линии со средними значениями
     plt.axhline(y=mean_2022, color='#A5A5A5', linestyle='--', linewidth=0.8,
@@ -149,7 +179,6 @@ def load_valid_sheets(file_path):
                 df.iloc[2:, 4].astype(float)  # Данные за 2022 год (столбец E)
 
                 valid_sheets.append(sheet_name)
-
 
             except Exception as e:
                 # Логируем ошибку в файл
