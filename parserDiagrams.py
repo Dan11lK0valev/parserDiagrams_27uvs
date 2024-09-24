@@ -111,24 +111,51 @@ def make_diagrams(sheet_name, file_path, folder_name):
     plt.figure(figsize=(10, 6), dpi=500)
     # fig, ax = plt.subplots()  # Создаем фигуру и оси
 
-    # Функция для определения цвета столбика: красный, если значение превышает порог
-    def bar_color(value, threshold, year):
+    # После вычисления порогов для выбросов
+    max_non_outlier_value = max(
+        max(values_2022[values_2022 <= threshold_2022]),
+        max(values_2023[values_2023 <= threshold_2023]),
+        max(values_2024[values_2024 <= threshold_2024])
+    )
+
+    # Функция для определения цвета столбика и возможного сокращения
+    def bar_color_and_adjust(value, threshold, year):
         color = ''
+        adjusted_height = value  # Значение по умолчанию для высоты столбца
+
         if year == 2022:
             color = '#A5A5A5'
         if year == 2023:
             color = '#ED7D31'
         if year == 2024:
             color = '#5B9BD5'
-        return 'red' if value > threshold else color
+
+        if value > threshold:
+            color = 'red'
+            # Сокращаем высоту столбца до максимального невыбросного значения
+            if value > max_non_outlier_value:
+                adjusted_height = max_non_outlier_value
+
+        return color, adjusted_height
 
     # Столбики для каждого года
-    plt.bar([i - width for i in x], values_2022, width=width,
-            label='2022', color=[bar_color(v, threshold_2022, 2022) for v in values_2022])
-    plt.bar(x, values_2023, width=width,
-            label='2023', color=[bar_color(v, threshold_2023, 2023) for v in values_2023])
-    plt.bar([i + width for i in x], values_2024, width=width,
-            label='2024', color=[bar_color(v, threshold_2024, 2024) for v in values_2024])
+    plt.bar([i - width for i in x],
+            [bar_color_and_adjust(v, threshold_2022, 2022)[1] for v in values_2022],
+            width=width,
+            label='2022',
+            color=[bar_color_and_adjust(v, threshold_2022, 2022)[0] for v in values_2022])
+
+    plt.bar(x,
+            [bar_color_and_adjust(v, threshold_2023, 2023)[1] for v in values_2023],
+            width=width,
+            label='2023',
+            color=[bar_color_and_adjust(v, threshold_2023, 2023)[0] for v in values_2023])
+
+    plt.bar([i + width for i in x],
+            [bar_color_and_adjust(v, threshold_2024, 2024)[1] for v in values_2024],
+            width=width,
+            label='2024',
+            color=[bar_color_and_adjust(v, threshold_2024, 2024)[0] for v in values_2024])
 
     # Горизонтальные пунктирные линии со средними значениями
     plt.axhline(y=mean_2022, color='#A5A5A5', linestyle='--', linewidth=0.8,
@@ -137,6 +164,15 @@ def make_diagrams(sheet_name, file_path, folder_name):
                 label=f'Среднее за 2023: {int(round(mean_2023)):,}'.replace(',', ' '))
     plt.axhline(y=mean_2024, color='#5B9BD5', linestyle='--', linewidth=0.8,
                 label=f'Среднее за 2024: {int(round(mean_2024)):,}'.replace(',', ' '))
+
+    ax = plt.gca()
+    y_ticks = ax.get_yticks()
+    y_max_metric = 0
+    # Получение предпоследнего значения и преобразование в int
+    if len(y_ticks) >= 2:  # Проверка, чтобы избежать ошибок
+        y_max_metric = int(y_ticks[-2])
+
+
 
     plt.xticks(x, regions, rotation=90, ha='right',
                fontsize=6)  # Поворот подписи на оси X на 90 градусов и настройка размера шрифта
@@ -152,7 +188,6 @@ def make_diagrams(sheet_name, file_path, folder_name):
     plt.ticklabel_format(style='plain', axis='y')  # Установка обычного стиля на оси Y
 
     # Форматирование оси ординат с пробелами в числах
-    ax = plt.gca()
     ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{int(x):,}'.replace(',', ' ')))
 
     plt.savefig(f'{folder_name}/{sheet_name}.png', dpi=500, bbox_inches='tight')
