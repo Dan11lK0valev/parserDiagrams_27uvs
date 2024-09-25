@@ -121,32 +121,47 @@ def make_diagrams(sheet_name, file_path, folder_name):
     # Функция для определения возможного сокращения
     def bar_adjust(value, threshold):
         adjusted_height = value  # Значение по умолчанию для высоты столбца
+        white_cut = False
 
         if value > threshold:
             # Сокращаем высоту столбца до максимального невыбросного значения
             if value > max_non_outlier_value:
                 adjusted_height = max_non_outlier_value
+                white_cut = True
 
-        return adjusted_height
+        return adjusted_height, white_cut
+
+    # Функция для добавления белых частей в столбики
+    # Функция для добавления белых частей в сокращенные столбики
+    def add_white_section(bars, original_values, adjusted_values):
+        for bar, original, (adjusted, white_cut) in zip(bars, original_values, adjusted_values):
+            # Проверяем, был ли столбик сокращен
+            if white_cut:
+                # Рассчитываем высоту белой части
+                white_height = bar.get_height() * 0.02
+                # Получаем координаты текущего столбика
+                x = bar.get_x() + bar.get_width() / 2
+                y = bar.get_height() - bar.get_height() * 0.05
+
+                # Добавляем белую часть (прямоугольник) только для сокращенных столбиков
+                plt.bar(x, white_height, bottom=y, width=bar.get_width(), color='white', edgecolor='none')
 
     # Столбики для каждого года
-    plt.bar([i - width for i in x],
-            [bar_adjust(v, threshold_2022) for v in values_2022],
-            width=width,
-            label='2022',
-            color='#A5A5A5')
+    adjusted_2022 = [bar_adjust(v, threshold_2022) for v in values_2022]
+    bars_2022 = plt.bar([i - width for i in x], [adj[0] for adj in adjusted_2022], width=width, label='2022',
+                        color='#A5A5A5')
 
-    plt.bar(x,
-            [bar_adjust(v, threshold_2023) for v in values_2023],
-            width=width,
-            label='2023',
-            color='#ED7D31')
+    adjusted_2023 = [bar_adjust(v, threshold_2023) for v in values_2023]
+    bars_2023 = plt.bar(x, [adj[0] for adj in adjusted_2023], width=width, label='2023', color='#ED7D31')
 
-    plt.bar([i + width for i in x],
-            [bar_adjust(v, threshold_2024) for v in values_2024],
-            width=width,
-            label='2024',
-            color='#5B9BD5')
+    adjusted_2024 = [bar_adjust(v, threshold_2024) for v in values_2024]
+    bars_2024 = plt.bar([i + width for i in x], [adj[0] for adj in adjusted_2024], width=width, label='2024',
+                        color='#5B9BD5')
+
+    # Добавляем белые части только для сокращенных столбиков
+    add_white_section(bars_2022, values_2022, adjusted_2022)
+    add_white_section(bars_2023, values_2023, adjusted_2023)
+    add_white_section(bars_2024, values_2024, adjusted_2024)
 
     # Флаг для отображения чисел над сокращенными столбцами
     show_original_values = True  # Если False, числа отображаться не будут
@@ -162,21 +177,21 @@ def make_diagrams(sheet_name, file_path, folder_name):
                 position_2022 = "right"
                 position_2024 = "left"
                 plt.text(x[i],
-                         bar_adjust(values_2023[i], threshold_2023) + 3,
+                         bar_adjust(values_2023[i], threshold_2023)[0] + 3,
                          f'{int(values_2023[i]):,}'.replace(',', ' '),
                          ha=position_2023, va='bottom', rotation=90, fontsize=5)
 
             # Для 2022 года
             if values_2022[i] > threshold_2022 and values_2022[i] > max_non_outlier_value:
                 plt.text(x[i] - width,
-                         bar_adjust(values_2022[i], threshold_2022) + 3,
+                         bar_adjust(values_2022[i], threshold_2022)[0] + 3,
                          f'{int(values_2022[i]):,}'.replace(',', ' '),
                          ha=position_2022, va='bottom', rotation=90, fontsize=5)
 
             # Для 2024 года
             if values_2024[i] > threshold_2024 and values_2024[i] > max_non_outlier_value:
                 plt.text(x[i] + width,
-                         bar_adjust(values_2024[i], threshold_2024) + 3,
+                         bar_adjust(values_2024[i], threshold_2024)[0] + 3,
                          f'{int(values_2024[i]):,}'.replace(',', ' '),
                          ha=position_2024, va='bottom', rotation=90, fontsize=5)
 
