@@ -118,22 +118,23 @@ class DiagramConstructor:
     def make_diagrams(sheet_name, file_path, folder_name, standard_deviation, show_original_values):
         df = FileUtils.load_data(file_path, sheet_name=sheet_name)
 
-        regions = df.iloc[2:, 0].values
-        values_2022 = df.iloc[2:, 4].astype(float).values
-        values_2023 = df.iloc[2:, 3].astype(float).values
-        values_2024 = df.iloc[2:, 2].astype(float).values
+        regions = df.iloc[2:, 0].values  # Чтение регионов из колонки A с 4 строки
+        values_2022 = df.iloc[2:, 4].astype(float).values  # Чтение числовых значений за 2022 из колонки E с 4 строки
+        values_2023 = df.iloc[2:, 3].astype(float).values  # Чтение числовых значений за 2023 из колонки D с 4 строки
+        values_2024 = df.iloc[2:, 2].astype(float).values  # Чтение числовых значений за 2024 из колонки C с 4 строки
 
-        non_zero_and_one_filter = ((values_2022 != 0).astype(int) + (values_2023 != 0).astype(int) + (
-                    values_2024 != 0).astype(int)) > 1
+        non_zero_and_one_filter = ((values_2022 != 0).astype(int) + (values_2023 != 0).astype(int) +
+                                   (values_2024 != 0).astype(int)) > 1  # исключаем регионы без данных и с данными
+        # за один год
         regions, values_2022, values_2023, values_2024 = [arr[non_zero_and_one_filter] for arr in
                                                           [regions, values_2022, values_2023, values_2024]]
 
-        sorted_indices = values_2024.argsort()
+        sorted_indices = values_2024.argsort()  # сортировка регионов по возрастанию относительно колонки C
         regions, values_2022, values_2023, values_2024 = [arr[sorted_indices] for arr in
                                                           [regions, values_2022, values_2023, values_2024]]
 
         valid_data_filter = ((values_2022 != 0).astype(int) + (values_2023 != 0).astype(int) + (
-                    values_2024 != 0).astype(int)) > 1
+                values_2024 != 0).astype(int)) > 1
         mean_2022, mean_2023, mean_2024 = [arr[valid_data_filter & (arr > 0)].mean() for arr in
                                            [values_2022, values_2023, values_2024]]
         std_2022, std_2023, std_2024 = [arr[valid_data_filter & (arr > 0)].std(ddof=0) for arr in
@@ -175,26 +176,24 @@ class DiagramConstructor:
 
         if show_original_values:
             for i in range(len(x)):
-                if (values_2023[i] > threshold_2023 and values_2023[i] > max_non_outlier_value) or (
-                        values_2023[i] > y_max_metric):
-                    plt.text(x[i], DiagramConstructor.bar_adjust(values_2023[i], threshold_2023, max_non_outlier_value)[
-                        0] + 3.5,
-                             f'{int(values_2023[i]):,}'.replace(',', ' '), ha='center', va='bottom', rotation=90,
-                             fontsize=5)
-                if (values_2022[i] > threshold_2022 and values_2022[i] > max_non_outlier_value) or (
-                        values_2022[i] > y_max_metric):
+                if ((values_2023[i] > threshold_2023 and values_2023[i] > max_non_outlier_value) or
+                        (values_2023[i] > y_max_metric)):
+                    plt.text(x[i],
+                             DiagramConstructor.bar_adjust(values_2023[i], threshold_2023, max_non_outlier_value)[0] +
+                             3.5, f'{int(values_2023[i]):,}'.replace(',', ' '), ha='center', va='bottom',
+                             rotation=90, fontsize=5)
+                if ((values_2022[i] > threshold_2022 and values_2022[i] > max_non_outlier_value) or
+                        (values_2022[i] > y_max_metric)):
                     plt.text(x[i] - width,
-                             DiagramConstructor.bar_adjust(values_2022[i], threshold_2022, max_non_outlier_value)[
-                                 0] + 3.5,
-                             f'{int(values_2022[i]):,}'.replace(',', ' '), ha='right', va='bottom', rotation=90,
-                             fontsize=5)
-                if (values_2024[i] > threshold_2024 and values_2024[i] > max_non_outlier_value) or (
-                        values_2024[i] > y_max_metric):
+                             DiagramConstructor.bar_adjust(values_2022[i], threshold_2022, max_non_outlier_value)[0] +
+                             3.5, f'{int(values_2022[i]):,}'.replace(',', ' '), ha='right', va='bottom',
+                             rotation=90, fontsize=5)
+                if ((values_2024[i] > threshold_2024 and values_2024[i] > max_non_outlier_value) or
+                        (values_2024[i] > y_max_metric)):
                     plt.text(x[i] + width,
-                             DiagramConstructor.bar_adjust(values_2024[i], threshold_2024, max_non_outlier_value)[
-                                 0] + 3.5,
-                             f'{int(values_2024[i]):,}'.replace(',', ' '), ha='left', va='bottom', rotation=90,
-                             fontsize=5)
+                             DiagramConstructor.bar_adjust(values_2024[i], threshold_2024, max_non_outlier_value)[0] +
+                             3.5, f'{int(values_2024[i]):,}'.replace(',', ' '), ha='left', va='bottom',
+                             rotation=90, fontsize=5)
 
         plt.axhline(y=mean_2022, color='#A5A5A5', linestyle='--', linewidth=0.8,
                     label=f'Среднее за 2022: {int(round(mean_2022)):,}'.replace(',', ' '))
