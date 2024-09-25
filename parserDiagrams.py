@@ -118,44 +118,67 @@ def make_diagrams(sheet_name, file_path, folder_name):
         max(values_2024[values_2024 <= threshold_2024])
     )
 
-    # Функция для определения цвета столбика и возможного сокращения
-    def bar_color_and_adjust(value, threshold, year):
-        color = ''
+    # Функция для определения возможного сокращения
+    def bar_adjust(value, threshold):
         adjusted_height = value  # Значение по умолчанию для высоты столбца
 
-        if year == 2022:
-            color = '#A5A5A5'
-        if year == 2023:
-            color = '#ED7D31'
-        if year == 2024:
-            color = '#5B9BD5'
-
         if value > threshold:
-            color = 'red'
             # Сокращаем высоту столбца до максимального невыбросного значения
             if value > max_non_outlier_value:
                 adjusted_height = max_non_outlier_value
 
-        return color, adjusted_height
+        return adjusted_height
 
     # Столбики для каждого года
     plt.bar([i - width for i in x],
-            [bar_color_and_adjust(v, threshold_2022, 2022)[1] for v in values_2022],
+            [bar_adjust(v, threshold_2022) for v in values_2022],
             width=width,
             label='2022',
-            color=[bar_color_and_adjust(v, threshold_2022, 2022)[0] for v in values_2022])
+            color='#A5A5A5')
 
     plt.bar(x,
-            [bar_color_and_adjust(v, threshold_2023, 2023)[1] for v in values_2023],
+            [bar_adjust(v, threshold_2023) for v in values_2023],
             width=width,
             label='2023',
-            color=[bar_color_and_adjust(v, threshold_2023, 2023)[0] for v in values_2023])
+            color='#ED7D31')
 
     plt.bar([i + width for i in x],
-            [bar_color_and_adjust(v, threshold_2024, 2024)[1] for v in values_2024],
+            [bar_adjust(v, threshold_2024) for v in values_2024],
             width=width,
             label='2024',
-            color=[bar_color_and_adjust(v, threshold_2024, 2024)[0] for v in values_2024])
+            color='#5B9BD5')
+
+    # Флаг для отображения чисел над сокращенными столбцами
+    show_original_values = True  # Если False, числа отображаться не будут
+
+    # Если show_original_values = True, отображаем исходные значения над сокращенными столбиками
+    if show_original_values:
+        for i in range(len(x)):
+            position_2022 = 'center'
+            position_2023 = 'center'
+            position_2024 = 'center'
+            # Для 2023 года
+            if values_2023[i] > threshold_2023 and values_2023[i] > max_non_outlier_value:
+                position_2022 = "right"
+                position_2024 = "left"
+                plt.text(x[i],
+                         bar_adjust(values_2023[i], threshold_2023) + 3,
+                         f'{int(values_2023[i]):,}'.replace(',', ' '),
+                         ha=position_2023, va='bottom', rotation=90, fontsize=5)
+
+            # Для 2022 года
+            if values_2022[i] > threshold_2022 and values_2022[i] > max_non_outlier_value:
+                plt.text(x[i] - width,
+                         bar_adjust(values_2022[i], threshold_2022) + 3,
+                         f'{int(values_2022[i]):,}'.replace(',', ' '),
+                         ha=position_2022, va='bottom', rotation=90, fontsize=5)
+
+            # Для 2024 года
+            if values_2024[i] > threshold_2024 and values_2024[i] > max_non_outlier_value:
+                plt.text(x[i] + width,
+                         bar_adjust(values_2024[i], threshold_2024) + 3,
+                         f'{int(values_2024[i]):,}'.replace(',', ' '),
+                         ha=position_2024, va='bottom', rotation=90, fontsize=5)
 
     # Горизонтальные пунктирные линии со средними значениями
     plt.axhline(y=mean_2022, color='#A5A5A5', linestyle='--', linewidth=0.8,
@@ -171,8 +194,6 @@ def make_diagrams(sheet_name, file_path, folder_name):
     # Получение предпоследнего значения и преобразование в int
     if len(y_ticks) >= 2:  # Проверка, чтобы избежать ошибок
         y_max_metric = int(y_ticks[-2])
-
-
 
     plt.xticks(x, regions, rotation=90, ha='right',
                fontsize=6)  # Поворот подписи на оси X на 90 градусов и настройка размера шрифта
