@@ -136,23 +136,24 @@ class DiagramConstructor:
         valid_data_filter = ((values_2022 != 0).astype(int) + (values_2023 != 0).astype(int) + (
                 values_2024 != 0).astype(int)) > 1
         mean_2022, mean_2023, mean_2024 = [arr[valid_data_filter & (arr > 0)].mean() for arr in
-                                           [values_2022, values_2023, values_2024]]
+                                           [values_2022, values_2023, values_2024]]  # Средние значения по фильтрации
         std_2022, std_2023, std_2024 = [arr[valid_data_filter & (arr > 0)].std(ddof=0) for arr in
-                                        [values_2022, values_2023, values_2024]]
+                                        [values_2022, values_2023, values_2024]]  # Показатели стандартного отклонения
         threshold_2022, threshold_2023, threshold_2024 = [mean + standard_deviation * std for mean, std in
                                                           zip([mean_2022, mean_2023, mean_2024],
-                                                              [std_2022, std_2023, std_2024])]
+                                                              [std_2022, std_2023, std_2024])]  # Пороги выбросов
 
         x = range(len(regions))
         width = 0.25
 
         plt.figure(figsize=(10, 6), dpi=500)
+        # Максимальное значение, не преодолевшее порог выброса
         max_non_outlier_value = max(
             max(values_2022[values_2022 <= threshold_2022]),
             max(values_2023[values_2023 <= threshold_2023]),
             max(values_2024[values_2024 <= threshold_2024])
         )
-
+        # Генерация диаграммы
         adjusted_2022 = [DiagramConstructor.bar_adjust(v, threshold_2022, max_non_outlier_value) for v in values_2022]
         bars_2022 = plt.bar([i - width for i in x], [adj[0] for adj in adjusted_2022], width=width, label='2022',
                             color='#A5A5A5')
@@ -164,6 +165,7 @@ class DiagramConstructor:
         bars_2024 = plt.bar([i + width for i in x], [adj[0] for adj in adjusted_2024], width=width, label='2024',
                             color='#5B9BD5')
 
+        # Подрисовка белых обрезаний у сокращенных столбиков
         DiagramConstructor.add_white_section(bars_2022, values_2022, adjusted_2022)
         DiagramConstructor.add_white_section(bars_2023, values_2023, adjusted_2023)
         DiagramConstructor.add_white_section(bars_2024, values_2024, adjusted_2024)
@@ -172,8 +174,9 @@ class DiagramConstructor:
         y_ticks = ax.get_yticks()
         y_max_metric = 0
         if len(y_ticks) >= 2:
-            y_max_metric = int(y_ticks[-2])
+            y_max_metric = int(y_ticks[-2])  # Максимальная метрика из оси ординаты, используемая на графике
 
+        # Визуализация числовых значений сокращенных и превышающих максимальную метрику оси Y столбцов
         if show_original_values:
             for i in range(len(x)):
                 if ((values_2023[i] > threshold_2023 and values_2023[i] > max_non_outlier_value) or
@@ -195,6 +198,7 @@ class DiagramConstructor:
                              3.5, f'{int(values_2024[i]):,}'.replace(',', ' '), ha='left', va='bottom',
                              rotation=90, fontsize=5)
 
+        # Генерация пунктирных линий - средних значений за каждый год
         plt.axhline(y=mean_2022, color='#A5A5A5', linestyle='--', linewidth=0.8,
                     label=f'Среднее за 2022: {int(round(mean_2022)):,}'.replace(',', ' '))
         plt.axhline(y=mean_2023, color='#ED7D31', linestyle='--', linewidth=0.8,
@@ -202,6 +206,7 @@ class DiagramConstructor:
         plt.axhline(y=mean_2024, color='#5B9BD5', linestyle='--', linewidth=0.8,
                     label=f'Среднее за 2024: {int(round(mean_2024)):,}'.replace(',', ' '))
 
+        # Настройки для повышенного качества, нормализации названия регионов на оси X и числового формата метрик оси Y
         plt.xticks(x, regions, rotation=90, ha='right', fontsize=6)
         plt.rcParams['text.antialiased'] = True
         plt.legend()
@@ -212,12 +217,14 @@ class DiagramConstructor:
         plt.ticklabel_format(style='plain', axis='y')
         ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{int(x):,}'.replace(',', ' ')))
 
+        # Сохранение диаграммы
         plt.savefig(f'{folder_name}/{sheet_name}.png', dpi=500, bbox_inches='tight')
         plt.close()
 
 
 # Главная база программы
 class MainApp:
+    # Проверка читаемого объекта на существование и верный формат
     @staticmethod
     def run():
         if len(sys.argv) > 1:
@@ -233,19 +240,20 @@ class MainApp:
 
         folder_name = FileUtils.create_unique_folder()
         valid_sheets = DataProcessor.load_valid_sheets(file_path)
-
+        # Анализ листов табличного документа, которые код прочитывает корректно
         if valid_sheets:
             print("Валидные листы:", ', '.join(valid_sheets) if valid_sheets[0] else "CSV файл")
+            # Параметры генерации диаграмм из файла parameters.txt
             params = DataProcessor.read_parameters_from_file('parameters.txt')
             standard_deviation = params.get('standard_deviation', 4)
             show_original_values = params.get('show_original_values', True)
-
+            # Запуск генерации диаграмм
             for sheet in valid_sheets:
                 DiagramConstructor.make_diagrams(sheet, file_path, folder_name, standard_deviation,
                                                  show_original_values)
         else:
             print("Нет валидных листов для обработки.")
-
+        # Завершение программы
         print("Program has done. Thank you for using.")
         print("parserDiagram_27uvs.")
 
