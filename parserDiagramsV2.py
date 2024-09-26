@@ -119,29 +119,34 @@ class DiagramConstructor:
         df = FileUtils.load_data(file_path, sheet_name=sheet_name)
 
         regions = df.iloc[2:, 0].values  # Чтение регионов из колонки A с 4 строки
-        values_2022 = df.iloc[2:, 4].astype(float).values  # Чтение числовых значений за 2022 из колонки E с 4 строки
-        values_2023 = df.iloc[2:, 3].astype(float).values  # Чтение числовых значений за 2023 из колонки D с 4 строки
-        values_2024 = df.iloc[2:, 2].astype(float).values  # Чтение числовых значений за 2024 из колонки C с 4 строки
+        values_1 = df.iloc[2:, 4].astype(float).values  # Чтение числовых значений из колонки E с 4 строки (это 2022)
+        values_2 = df.iloc[2:, 3].astype(float).values  # Чтение числовых значений из колонки D с 4 строки (это 2023)
+        values_3 = df.iloc[2:, 2].astype(float).values  # Чтение числовых значений из колонки C с 4 строки (это 2024)
 
-        non_zero_and_one_filter = ((values_2022 != 0).astype(int) + (values_2023 != 0).astype(int) +
-                                   (values_2024 != 0).astype(int)) > 1  # исключаем регионы без данных и с данными
+        # Года из третьей строки (индекс 2) и соответствующих столбцов
+        year_1 = df.iloc[1, 4]  # Год в колонке E (2022)
+        year_2 = df.iloc[1, 3]  # Год в колонке D (2023)
+        year_3 = df.iloc[1, 2]  # Год в колонке C (2024)
+
+        non_zero_and_one_filter = ((values_1 != 0).astype(int) + (values_2 != 0).astype(int) +
+                                   (values_3 != 0).astype(int)) > 1  # исключаем регионы без данных и с данными
         # за один год
-        regions, values_2022, values_2023, values_2024 = [arr[non_zero_and_one_filter] for arr in
-                                                          [regions, values_2022, values_2023, values_2024]]
+        regions, values_1, values_2, values_3 = [arr[non_zero_and_one_filter] for arr in
+                                                 [regions, values_1, values_2, values_3]]
 
-        sorted_indices = values_2024.argsort()  # сортировка регионов по возрастанию относительно колонки C
-        regions, values_2022, values_2023, values_2024 = [arr[sorted_indices] for arr in
-                                                          [regions, values_2022, values_2023, values_2024]]
+        sorted_indices = values_3.argsort()  # сортировка регионов по возрастанию относительно колонки C
+        regions, values_1, values_2, values_3 = [arr[sorted_indices] for arr in
+                                                 [regions, values_1, values_2, values_3]]
 
-        valid_data_filter = ((values_2022 != 0).astype(int) + (values_2023 != 0).astype(int) + (
-                values_2024 != 0).astype(int)) > 1
-        mean_2022, mean_2023, mean_2024 = [arr[valid_data_filter & (arr > 0)].mean() for arr in
-                                           [values_2022, values_2023, values_2024]]  # Средние значения по фильтрации
+        valid_data_filter = ((values_1 != 0).astype(int) + (values_2 != 0).astype(int) + (
+                values_3 != 0).astype(int)) > 1
+        mean_1, mean_2, mean_3 = [arr[valid_data_filter & (arr > 0)].mean() for arr in
+                                  [values_1, values_2, values_3]]  # Средние значения по фильтрации
         std_2022, std_2023, std_2024 = [arr[valid_data_filter & (arr > 0)].std(ddof=0) for arr in
-                                        [values_2022, values_2023, values_2024]]  # Показатели стандартного отклонения
-        threshold_2022, threshold_2023, threshold_2024 = [mean + standard_deviation * std for mean, std in
-                                                          zip([mean_2022, mean_2023, mean_2024],
-                                                              [std_2022, std_2023, std_2024])]  # Пороги выбросов
+                                        [values_1, values_2, values_3]]  # Показатели стандартного отклонения
+        threshold_1, threshold_2, threshold_3 = [mean + standard_deviation * std for mean, std in
+                                                 zip([mean_1, mean_2, mean_3],
+                                                     [std_2022, std_2023, std_2024])]  # Пороги выбросов
 
         x = range(len(regions))
         width = 0.25
@@ -149,26 +154,27 @@ class DiagramConstructor:
         plt.figure(figsize=(10, 6), dpi=500)
         # Максимальное значение, не преодолевшее порог выброса
         max_non_outlier_value = max(
-            max(values_2022[values_2022 <= threshold_2022]),
-            max(values_2023[values_2023 <= threshold_2023]),
-            max(values_2024[values_2024 <= threshold_2024])
+            max(values_1[values_1 <= threshold_1]),
+            max(values_2[values_2 <= threshold_2]),
+            max(values_3[values_3 <= threshold_3])
         )
         # Генерация диаграммы
-        adjusted_2022 = [DiagramConstructor.bar_adjust(v, threshold_2022, max_non_outlier_value) for v in values_2022]
-        bars_2022 = plt.bar([i - width for i in x], [adj[0] for adj in adjusted_2022], width=width, label='2022',
-                            color='#A5A5A5')
+        adjusted_1 = [DiagramConstructor.bar_adjust(v, threshold_1, max_non_outlier_value) for v in values_1]
+        bars_1 = plt.bar([i - width for i in x], [adj[0] for adj in adjusted_1], width=width,
+                         label=f'{str(int(year_1))} — {int(round(mean_1)):,}'.replace(',', ' '), color='#A5A5A5')
 
-        adjusted_2023 = [DiagramConstructor.bar_adjust(v, threshold_2023, max_non_outlier_value) for v in values_2023]
-        bars_2023 = plt.bar(x, [adj[0] for adj in adjusted_2023], width=width, label='2023', color='#ED7D31')
+        adjusted_2 = [DiagramConstructor.bar_adjust(v, threshold_2, max_non_outlier_value) for v in values_2]
+        bars_2 = plt.bar(x, [adj[0] for adj in adjusted_2], width=width,
+                         label=f'{str(int(year_2))} — {int(round(mean_2)):,}'.replace(',', ' '), color='#ED7D31')
 
-        adjusted_2024 = [DiagramConstructor.bar_adjust(v, threshold_2024, max_non_outlier_value) for v in values_2024]
-        bars_2024 = plt.bar([i + width for i in x], [adj[0] for adj in adjusted_2024], width=width, label='2024',
-                            color='#5B9BD5')
+        adjusted_3 = [DiagramConstructor.bar_adjust(v, threshold_3, max_non_outlier_value) for v in values_3]
+        bars_3 = plt.bar([i + width for i in x], [adj[0] for adj in adjusted_3], width=width,
+                         label=f'{str(int(year_3))} — {int(round(mean_3)):,}'.replace(',', ' '), color='#5B9BD5')
 
         # Подрисовка белых обрезаний у сокращенных столбиков
-        DiagramConstructor.add_white_section(bars_2022, values_2022, adjusted_2022)
-        DiagramConstructor.add_white_section(bars_2023, values_2023, adjusted_2023)
-        DiagramConstructor.add_white_section(bars_2024, values_2024, adjusted_2024)
+        DiagramConstructor.add_white_section(bars_1, values_1, adjusted_1)
+        DiagramConstructor.add_white_section(bars_2, values_2, adjusted_2)
+        DiagramConstructor.add_white_section(bars_3, values_3, adjusted_3)
 
         ax = plt.gca()
         y_ticks = ax.get_yticks()
@@ -179,37 +185,34 @@ class DiagramConstructor:
         # Визуализация числовых значений сокращенных и превышающих максимальную метрику оси Y столбцов
         if show_original_values:
             for i in range(len(x)):
-                if ((values_2023[i] > threshold_2023 and values_2023[i] > max_non_outlier_value) or
-                        (values_2023[i] > y_max_metric)):
+                if ((values_2[i] > threshold_2 and values_2[i] > max_non_outlier_value) or
+                        (values_2[i] > y_max_metric)):
                     plt.text(x[i],
-                             DiagramConstructor.bar_adjust(values_2023[i], threshold_2023, max_non_outlier_value)[0] +
-                             3.5, f'{int(values_2023[i]):,}'.replace(',', ' '), ha='center', va='bottom',
+                             DiagramConstructor.bar_adjust(values_2[i], threshold_2, max_non_outlier_value)[0] +
+                             3.5, f'{int(values_2[i]):,}'.replace(',', ' '), ha='center', va='bottom',
                              rotation=90, fontsize=5)
-                if ((values_2022[i] > threshold_2022 and values_2022[i] > max_non_outlier_value) or
-                        (values_2022[i] > y_max_metric)):
+                if ((values_1[i] > threshold_1 and values_1[i] > max_non_outlier_value) or
+                        (values_1[i] > y_max_metric)):
                     plt.text(x[i] - width,
-                             DiagramConstructor.bar_adjust(values_2022[i], threshold_2022, max_non_outlier_value)[0] +
-                             3.5, f'{int(values_2022[i]):,}'.replace(',', ' '), ha='right', va='bottom',
+                             DiagramConstructor.bar_adjust(values_1[i], threshold_1, max_non_outlier_value)[0] +
+                             3.5, f'{int(values_1[i]):,}'.replace(',', ' '), ha='right', va='bottom',
                              rotation=90, fontsize=5)
-                if ((values_2024[i] > threshold_2024 and values_2024[i] > max_non_outlier_value) or
-                        (values_2024[i] > y_max_metric)):
+                if ((values_3[i] > threshold_3 and values_3[i] > max_non_outlier_value) or
+                        (values_3[i] > y_max_metric)):
                     plt.text(x[i] + width,
-                             DiagramConstructor.bar_adjust(values_2024[i], threshold_2024, max_non_outlier_value)[0] +
-                             3.5, f'{int(values_2024[i]):,}'.replace(',', ' '), ha='left', va='bottom',
+                             DiagramConstructor.bar_adjust(values_3[i], threshold_3, max_non_outlier_value)[0] +
+                             3.5, f'{int(values_3[i]):,}'.replace(',', ' '), ha='left', va='bottom',
                              rotation=90, fontsize=5)
 
         # Генерация пунктирных линий - средних значений за каждый год
-        plt.axhline(y=mean_2022, color='#A5A5A5', linestyle='--', linewidth=0.8,
-                    label=f'Среднее за 2022: {int(round(mean_2022)):,}'.replace(',', ' '))
-        plt.axhline(y=mean_2023, color='#ED7D31', linestyle='--', linewidth=0.8,
-                    label=f'Среднее за 2023: {int(round(mean_2023)):,}'.replace(',', ' '))
-        plt.axhline(y=mean_2024, color='#5B9BD5', linestyle='--', linewidth=0.8,
-                    label=f'Среднее за 2024: {int(round(mean_2024)):,}'.replace(',', ' '))
+        plt.axhline(y=mean_1, color='#A5A5A5', linestyle='--', linewidth=0.8)
+        plt.axhline(y=mean_2, color='#ED7D31', linestyle='--', linewidth=0.8)
+        plt.axhline(y=mean_3, color='#5B9BD5', linestyle='--', linewidth=0.8)
 
         # Настройки для повышенного качества, нормализации названия регионов на оси X и числового формата метрик оси Y
         plt.xticks(x, regions, rotation=90, ha='right', fontsize=6)
         plt.rcParams['text.antialiased'] = True
-        plt.legend()
+        plt.legend(labelcolor=['#A5A5A5', '#ED7D31', '#5B9BD5'], handlelength=0, handletextpad=0)
         plt.tight_layout()
         plt.gca().spines['right'].set_visible(False)
         plt.gca().spines['top'].set_visible(False)
