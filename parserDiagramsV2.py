@@ -144,9 +144,10 @@ class DiagramConstructor:
                                   [values_1, values_2, values_3]]  # Средние значения по фильтрации
         std_2022, std_2023, std_2024 = [arr[valid_data_filter & (arr > 0)].std(ddof=0) for arr in
                                         [values_1, values_2, values_3]]  # Показатели стандартного отклонения
+        # по фильтрации
         threshold_1, threshold_2, threshold_3 = [mean + standard_deviation * std for mean, std in
                                                  zip([mean_1, mean_2, mean_3],
-                                                     [std_2022, std_2023, std_2024])]  # Пороги выбросов
+                                                     [std_2022, std_2023, std_2024])]  # Пороги выбросов по фильтрации
 
         x = range(len(regions))
         width = 0.25
@@ -212,7 +213,7 @@ class DiagramConstructor:
         # Настройки для повышенного качества, нормализации названия регионов на оси X и числового формата метрик оси Y
         plt.xticks(x, regions, rotation=90, ha='right', fontsize=6)
         plt.rcParams['text.antialiased'] = True
-        plt.legend(labelcolor=['#A5A5A5', '#ED7D31', '#5B9BD5'], handlelength=0, handletextpad=0)
+        plt.legend(title='Среднее', labelcolor=['#A5A5A5', '#ED7D31', '#5B9BD5'], handlelength=0, frameon=False)
         plt.tight_layout()
         plt.gca().spines['right'].set_visible(False)
         plt.gca().spines['top'].set_visible(False)

@@ -1,2 +1,2 @@
 standard_deviation=4
-show_original_values=False
+show_original_values=True
