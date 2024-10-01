@@ -87,6 +87,14 @@ class DataProcessor:
                     params[key] = float(value)
                 elif key == "show_original_values":
                     params[key] = value.lower() == 'true'
+                elif key == "orientation":
+                    params[key] = value.lower() == 'true'
+                elif key == "width":
+                    params[key] = float(value)
+                elif key == 'height':
+                    params[key] = float(value)
+                elif key == 'number':
+                    params[key] = int(value)
         return params
 
 
@@ -105,17 +113,23 @@ class DiagramConstructor:
 
     # Добавление "белых срезов" для сокращенных столбцов
     @staticmethod
-    def add_white_section(bars, original_values, adjusted_values):
+    def add_white_section(bars, original_values, adjusted_values, orientation):
         for bar, original, (adjusted, white_cut) in zip(bars, original_values, adjusted_values):
             if white_cut:
-                white_height = bar.get_height() * 0.02
-                x = bar.get_x() + bar.get_width() / 2
-                y = bar.get_height() - bar.get_height() * 0.05
-                plt.bar(x, white_height, bottom=y, width=bar.get_width(), color='white', edgecolor='none')
+                if orientation:
+                    white_height = bar.get_height() * 0.02
+                    x = bar.get_x() + bar.get_width() / 2
+                    y = bar.get_height() - bar.get_height() * 0.05
+                    plt.bar(x, white_height, bottom=y, width=bar.get_width(), color='white', edgecolor='none')
+                else:
+                    white_width = bar.get_width() * 0.02
+                    y = bar.get_y() + bar.get_height() / 2
+                    x = bar.get_width() - bar.get_width() * 0.05
+                    plt.barh(y, white_width, left=x, height=bar.get_height(), color='white', edgecolor='none')
 
     # Базовая функция генерации диаграмм
     @staticmethod
-    def make_diagrams(sheet_name, file_path, folder_name, standard_deviation, show_original_values):
+    def make_diagrams(sheet_name, file_path, folder_name, standard_deviation, show_original_values, orientation, my_width, my_height):
         df = FileUtils.load_data(file_path, sheet_name=sheet_name)
 
         regions = df.iloc[2:, 0].values  # Чтение регионов из колонки A с 4 строки
@@ -152,7 +166,8 @@ class DiagramConstructor:
         x = range(len(regions))
         width = 0.25
 
-        plt.figure(figsize=(10, 6), dpi=500)
+        plt.figure(figsize=(my_width, my_height), dpi=500)
+
         # Максимальное значение, не преодолевшее порог выброса
         max_non_outlier_value = max(
             max(values_1[values_1 <= threshold_1]),
@@ -161,66 +176,116 @@ class DiagramConstructor:
         )
         # Генерация диаграммы
         adjusted_1 = [DiagramConstructor.bar_adjust(v, threshold_1, max_non_outlier_value) for v in values_1]
-        bars_1 = plt.bar([i - width for i in x], [adj[0] for adj in adjusted_1], width=width,
-                         label=f'{str(int(year_1))} — {int(round(mean_1)):,}'.replace(',', ' '), color='#A5A5A5')
-
         adjusted_2 = [DiagramConstructor.bar_adjust(v, threshold_2, max_non_outlier_value) for v in values_2]
-        bars_2 = plt.bar(x, [adj[0] for adj in adjusted_2], width=width,
-                         label=f'{str(int(year_2))} — {int(round(mean_2)):,}'.replace(',', ' '), color='#ED7D31')
-
         adjusted_3 = [DiagramConstructor.bar_adjust(v, threshold_3, max_non_outlier_value) for v in values_3]
-        bars_3 = plt.bar([i + width for i in x], [adj[0] for adj in adjusted_3], width=width,
-                         label=f'{str(int(year_3))} — {int(round(mean_3)):,}'.replace(',', ' '), color='#5B9BD5')
+
+        if orientation:
+            # print('vertical')
+            bars_1 = plt.bar([i - width for i in x], [adj[0] for adj in adjusted_1], width=width,
+                             label=f'{str(int(year_1))} — {int(round(mean_1)):,}'.replace(',', ' '), color='#A5A5A5')
+            bars_2 = plt.bar(x, [adj[0] for adj in adjusted_2], width=width,
+                             label=f'{str(int(year_2))} — {int(round(mean_2)):,}'.replace(',', ' '), color='#ED7D31')
+            bars_3 = plt.bar([i + width for i in x], [adj[0] for adj in adjusted_3], width=width,
+                             label=f'{str(int(year_3))} — {int(round(mean_3)):,}'.replace(',', ' '), color='#5B9BD5')
+        else:
+            # print('horizontal')
+            bars_1 = plt.barh([i - width for i in x], [adj[0] for adj in adjusted_1], height=width,
+                              label=f'{str(int(year_1))} — {int(round(mean_1)):,}'.replace(',', ' '), color='#A5A5A5')
+            bars_2 = plt.barh(x, [adj[0] for adj in adjusted_2], height=width,
+                              label=f'{str(int(year_2))} — {int(round(mean_2)):,}'.replace(',', ' '), color='#ED7D31')
+            bars_3 = plt.barh([i + width for i in x], [adj[0] for adj in adjusted_3], height=width,
+                              label=f'{str(int(year_3))} — {int(round(mean_3)):,}'.replace(',', ' '), color='#5B9BD5')
 
         # Подрисовка белых обрезаний у сокращенных столбиков
-        DiagramConstructor.add_white_section(bars_1, values_1, adjusted_1)
-        DiagramConstructor.add_white_section(bars_2, values_2, adjusted_2)
-        DiagramConstructor.add_white_section(bars_3, values_3, adjusted_3)
+        DiagramConstructor.add_white_section(bars_1, values_1, adjusted_1, orientation)
+        DiagramConstructor.add_white_section(bars_2, values_2, adjusted_2, orientation)
+        DiagramConstructor.add_white_section(bars_3, values_3, adjusted_3, orientation)
 
         ax = plt.gca()
-        y_ticks = ax.get_yticks()
-        y_max_metric = 0
-        if len(y_ticks) >= 2:
-            y_max_metric = int(y_ticks[-2])  # Максимальная метрика из оси ординаты, используемая на графике
 
-        # Визуализация числовых значений сокращенных и превышающих максимальную метрику оси Y столбцов
-        if show_original_values:
-            for i in range(len(x)):
-                if ((values_2[i] > threshold_2 and values_2[i] > max_non_outlier_value) or
-                        (values_2[i] > y_max_metric)):
-                    plt.text(x[i],
-                             DiagramConstructor.bar_adjust(values_2[i], threshold_2, max_non_outlier_value)[0] +
-                             3.5, f'{int(values_2[i]):,}'.replace(',', ' '), ha='center', va='bottom',
-                             rotation=90, fontsize=5)
-                if ((values_1[i] > threshold_1 and values_1[i] > max_non_outlier_value) or
-                        (values_1[i] > y_max_metric)):
-                    plt.text(x[i] - width,
-                             DiagramConstructor.bar_adjust(values_1[i], threshold_1, max_non_outlier_value)[0] +
-                             3.5, f'{int(values_1[i]):,}'.replace(',', ' '), ha='right', va='bottom',
-                             rotation=90, fontsize=5)
-                if ((values_3[i] > threshold_3 and values_3[i] > max_non_outlier_value) or
-                        (values_3[i] > y_max_metric)):
-                    plt.text(x[i] + width,
-                             DiagramConstructor.bar_adjust(values_3[i], threshold_3, max_non_outlier_value)[0] +
-                             3.5, f'{int(values_3[i]):,}'.replace(',', ' '), ha='left', va='bottom',
-                             rotation=90, fontsize=5)
+        if orientation:
+            y_ticks = ax.get_yticks()
+            y_max_metric = 0
+            if len(y_ticks) >= 2:
+                y_max_metric = int(y_ticks[-2])  # Максимальная метрика из оси ординаты, используемая на графике
 
-        # Генерация пунктирных линий - средних значений за каждый год
-        plt.axhline(y=mean_1, color='#A5A5A5', linestyle='--', linewidth=0.8)
-        plt.axhline(y=mean_2, color='#ED7D31', linestyle='--', linewidth=0.8)
-        plt.axhline(y=mean_3, color='#5B9BD5', linestyle='--', linewidth=0.8)
+            # Визуализация числовых значений сокращенных и превышающих максимальную метрику оси Y столбцов
+            if show_original_values:
+                for i in range(len(x)):
+                    if ((values_2[i] > threshold_2 and values_2[i] > max_non_outlier_value) or
+                            (values_2[i] > y_max_metric)):
+                        plt.text(x[i],
+                                 DiagramConstructor.bar_adjust(values_2[i], threshold_2, max_non_outlier_value)[0] +
+                                 3.5, f'{int(values_2[i]):,}'.replace(',', ' '), ha='center', va='bottom',
+                                 rotation=90, fontsize=5)
+                    if ((values_1[i] > threshold_1 and values_1[i] > max_non_outlier_value) or
+                            (values_1[i] > y_max_metric)):
+                        plt.text(x[i] - width,
+                                 DiagramConstructor.bar_adjust(values_1[i], threshold_1, max_non_outlier_value)[0] +
+                                 3.5, f'{int(values_1[i]):,}'.replace(',', ' '), ha='right', va='bottom',
+                                 rotation=90, fontsize=5)
+                    if ((values_3[i] > threshold_3 and values_3[i] > max_non_outlier_value) or
+                            (values_3[i] > y_max_metric)):
+                        plt.text(x[i] + width,
+                                 DiagramConstructor.bar_adjust(values_3[i], threshold_3, max_non_outlier_value)[0] +
+                                 3.5, f'{int(values_3[i]):,}'.replace(',', ' '), ha='left', va='bottom',
+                                 rotation=90, fontsize=5)
 
-        # Настройки для повышенного качества, нормализации названия регионов на оси X и числового формата метрик оси Y
-        plt.xticks(x, regions, rotation=90, ha='right', fontsize=6)
-        plt.rcParams['text.antialiased'] = True
+            # Генерация пунктирных линий - средних значений за каждый год
+            plt.axhline(y=mean_1, color='#A5A5A5', linestyle='--', linewidth=0.8)
+            plt.axhline(y=mean_2, color='#ED7D31', linestyle='--', linewidth=0.8)
+            plt.axhline(y=mean_3, color='#5B9BD5', linestyle='--', linewidth=0.8)
+
+        else:
+            x_ticks = ax.get_xticks()
+            x_max_metric = 0
+            if len(x_ticks) >= 2:
+                x_max_metric = int(x_ticks[-2])
+
+            if show_original_values:
+                for i in range(len(x)):
+                    if ((values_2[i] > threshold_2 and values_2[i] > max_non_outlier_value) or
+                            (values_2[i] > x_max_metric)):
+                        plt.text(DiagramConstructor.bar_adjust(values_2[i], threshold_2, max_non_outlier_value)[0] +
+                                 3.5, x[i], f'{int(values_2[i]):,}'.replace(',', ' '), ha='left', va='center',
+                                 fontsize=5)
+                    if ((values_1[i] > threshold_1 and values_1[i] > max_non_outlier_value) or
+                            (values_1[i] > x_max_metric)):
+                        plt.text(DiagramConstructor.bar_adjust(values_1[i], threshold_1, max_non_outlier_value)[0] +
+                                 3.5, x[i] - width, f'{int(values_1[i]):,}'.replace(',', ' '), ha='left', va='bottom',
+                                 fontsize=5)
+                    if ((values_3[i] > threshold_3 and values_3[i] > max_non_outlier_value) or
+                            (values_3[i] > x_max_metric)):
+                        plt.text(DiagramConstructor.bar_adjust(values_3[i], threshold_3, max_non_outlier_value)[0] +
+                                 3.5, x[i] + width, f'{int(values_3[i]):,}'.replace(',', ' '), ha='left', va='top',
+                                 fontsize=5)
+            # Генерация пунктирных линий - средних значений за каждый год
+            plt.axvline(x=mean_1, color='#A5A5A5', linestyle='--', linewidth=0.8)
+            plt.axvline(x=mean_2, color='#ED7D31', linestyle='--', linewidth=0.8)
+            plt.axvline(x=mean_3, color='#5B9BD5', linestyle='--', linewidth=0.8)
+
+        # Настройки для повышенного качества, нормализации названия регионов и числового формата метрик
         plt.legend(title='Среднее', labelcolor=['#A5A5A5', '#ED7D31', '#5B9BD5'], handlelength=0, frameon=False)
-        plt.tight_layout()
         plt.gca().spines['right'].set_visible(False)
         plt.gca().spines['top'].set_visible(False)
-        plt.gca().yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
-        plt.ticklabel_format(style='plain', axis='y')
-        ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{int(x):,}'.replace(',', ' ')))
 
+        if orientation:
+            plt.xticks(x, regions, rotation=90, ha='right', fontsize=6)
+        else:
+            plt.yticks(x, regions, fontsize=6)
+
+        plt.rcParams['text.antialiased'] = True
+        plt.tight_layout()
+
+        if orientation:
+            plt.gca().yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
+            plt.ticklabel_format(style='plain', axis='y')
+            ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{int(x):,}'.replace(',', ' ')))
+        else:
+            plt.gca().invert_yaxis()
+            plt.gca().xaxis.set_major_formatter(ScalarFormatter(useOffset=False))
+            plt.ticklabel_format(style='plain', axis='x')
+            ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{int(x):,}'.replace(',', ' ')))
         # Сохранение диаграммы
         plt.savefig(f'{folder_name}/{sheet_name}.png', dpi=500, bbox_inches='tight')
         plt.close()
@@ -244,17 +309,26 @@ class MainApp:
 
         folder_name = FileUtils.create_unique_folder()
         valid_sheets = DataProcessor.load_valid_sheets(file_path)
+        if valid_sheets:
+            print("Все валидные листы:", ', '.join(valid_sheets) if valid_sheets[0] else "CSV файл")
+        params = DataProcessor.read_parameters_from_file('parameters.txt')
+        number = params.get('number', 0)
+        if number != 0:
+            valid_sheets = [valid_sheets[number-1]]
         # Анализ листов табличного документа, которые код прочитывает корректно
         if valid_sheets:
-            print("Валидные листы:", ', '.join(valid_sheets) if valid_sheets[0] else "CSV файл")
+            print("Выбранные валидные листы:", ', '.join(valid_sheets) if valid_sheets[0] else "CSV файл")
             # Параметры генерации диаграмм из файла parameters.txt
             params = DataProcessor.read_parameters_from_file('parameters.txt')
             standard_deviation = params.get('standard_deviation', 4)
             show_original_values = params.get('show_original_values', True)
+            orientation = params.get('orientation', True)
+            width = params.get('width', 10)
+            height = params.get('height', 6)
             # Запуск генерации диаграмм
             for sheet in valid_sheets:
                 DiagramConstructor.make_diagrams(sheet, file_path, folder_name, standard_deviation,
-                                                 show_original_values)
+                                                 show_original_values, orientation, width, height)
         else:
             print("Нет валидных листов для обработки.")
         # Завершение программы
