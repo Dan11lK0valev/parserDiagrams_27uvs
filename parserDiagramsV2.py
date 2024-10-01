@@ -127,33 +127,53 @@ class DiagramConstructor:
                     x = bar.get_width() - bar.get_width() * 0.05
                     plt.barh(y, white_width, left=x, height=bar.get_height(), color='white', edgecolor='none')
 
-    # Базовая функция генерации диаграмм
+    # Функция чтения регионов и выборки в соответствии с условиями
     @staticmethod
-    def make_diagrams(sheet_name, file_path, folder_name, standard_deviation, show_original_values, orientation, my_width, my_height):
-        df = FileUtils.load_data(file_path, sheet_name=sheet_name)
-
-        regions = df.iloc[2:, 0].values  # Чтение регионов из колонки A с 4 строки
-        values_1 = df.iloc[2:, 4].astype(float).values  # Чтение числовых значений из колонки E с 4 строки (это 2022)
-        values_2 = df.iloc[2:, 3].astype(float).values  # Чтение числовых значений из колонки D с 4 строки (это 2023)
-        values_3 = df.iloc[2:, 2].astype(float).values  # Чтение числовых значений из колонки C с 4 строки (это 2024)
+    def filter_regions(df):
+        # Чтение регионов из колонки A с 4 строки
+        regions = df.iloc[2:, 0].values
+        # Чтение числовых значений из колонок E, D и C с 4 строки (это 2022, 2023 и 2024)
+        values_1 = df.iloc[2:, 4].astype(float).values
+        values_2 = df.iloc[2:, 3].astype(float).values
+        values_3 = df.iloc[2:, 2].astype(float).values
 
         # Года из третьей строки (индекс 2) и соответствующих столбцов
         year_1 = df.iloc[1, 4]  # Год в колонке E (2022)
         year_2 = df.iloc[1, 3]  # Год в колонке D (2023)
         year_3 = df.iloc[1, 2]  # Год в колонке C (2024)
 
-        non_zero_and_one_filter = ((values_1 != 0).astype(int) + (values_2 != 0).astype(int) +
-                                   (values_3 != 0).astype(int)) > 1  # исключаем регионы без данных и с данными
-        # за один год
-        regions, values_1, values_2, values_3 = [arr[non_zero_and_one_filter] for arr in
+        # Условие для фильтрации: региона, у которого нет данных за 3 года, исключаются
+        non_zero_filter = (values_1 != 0) | (values_2 != 0) | (values_3 != 0)  # Регион имеет данные хотя бы за один год
+
+        # Условия для исключения:
+        # 1. Регионы без данных за 3 года.
+        # 2. Регионы без данных за 2 года, но с данными за третий год.
+        valid_filter = non_zero_filter & ((values_1 != 0).astype(int) + (values_2 != 0).astype(int) +
+                                          (values_3 != 0).astype(int) >= 2) | (values_3 != 0)
+
+        regions, values_1, values_2, values_3 = [arr[valid_filter] for arr in
                                                  [regions, values_1, values_2, values_3]]
 
-        sorted_indices = values_3.argsort()  # сортировка регионов по возрастанию относительно колонки C
+        # Сортировка регионов по возрастанию относительно колонки C
+        sorted_indices = values_3.argsort()
         regions, values_1, values_2, values_3 = [arr[sorted_indices] for arr in
                                                  [regions, values_1, values_2, values_3]]
 
-        valid_data_filter = ((values_1 != 0).astype(int) + (values_2 != 0).astype(int) + (
-                values_3 != 0).astype(int)) > 1
+        return regions, values_1, values_2, values_3, year_1, year_2, year_3
+
+    # Базовая функция генерации диаграмм
+    @staticmethod
+    def make_diagrams(sheet_name, file_path, folder_name, standard_deviation, show_original_values, orientation, my_width, my_height):
+        df = FileUtils.load_data(file_path, sheet_name=sheet_name)
+
+        regions, values_1, values_2, values_3, year_1, year_2, year_3 = DiagramConstructor.filter_regions(df)
+
+        # фильтр регионов, которые мы принимаем при расчетах
+        valid_data_filter = (((values_1 != 0).astype(int) +
+                             (values_2 != 0).astype(int) +
+                             (values_3 != 0).astype(int) >= 2) |  # Учитываем регионы с данными за 2 или 3 года
+                             (values_3 != 0))  # Учитываем регионы с данными только за третий год
+
         mean_1, mean_2, mean_3 = [arr[valid_data_filter & (arr > 0)].mean() for arr in
                                   [values_1, values_2, values_3]]  # Средние значения по фильтрации
         std_2022, std_2023, std_2024 = [arr[valid_data_filter & (arr > 0)].std(ddof=0) for arr in
